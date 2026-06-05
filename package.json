@@ -12,6 +12,6 @@
   "type": "commonjs",
   "dependencies": {
     "csv-writer": "^1.6.0",
-    "puppeteer": "^25.1.0"
+    "puppeteer": "^19.11.1"
   }
 }
