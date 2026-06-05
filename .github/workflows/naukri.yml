@@ -19,8 +19,5 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Install Chromium for Puppeteer
-        run: npx puppeteer browsers install chrome
-
       - name: Run script
         run: node jobAgent.js
