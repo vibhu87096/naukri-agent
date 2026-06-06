@@ -1,110 +1,70 @@
 const puppeteer = require("puppeteer");
-const fs = require("fs");
 const { createObjectCsvWriter } = require("csv-writer");
+const fs = require("fs");
 
 (async () => {
-  const browser = await puppeteer.launch({
-  headless: "new",
-  args: ["--no-sandbox", "--disable-setuid-sandbox"]
-});
+  let browser;
 
-  const page = await browser.newPage();
+  try {
+    console.log("Starting Puppeteer...");
 
-  // Load saved cookies
-  const cookies = JSON.parse(
-    fs.readFileSync("cookies.json", "utf8")
-  );
+    browser = await puppeteer.launch({
+      headless: "new",
+      args: ["--no-sandbox", "--disable-setuid-sandbox"]
+    });
 
-  await page.setCookie(...cookies);
+    const page = await browser.newPage();
 
-  // Open Node.js jobs page
-  await page.goto(
-    "https://www.naukri.com/nodejs-developer-jobs",
-    {
+    console.log("Opening Naukri...");
+    await page.goto("https://www.naukri.com/", {
       waitUntil: "networkidle2"
-    }
-  );
+    });
 
-  console.log("Jobs page opened");
+    console.log("Page loaded");
 
-  await new Promise(resolve => setTimeout(resolve, 5000));
+    // Example scraping (basic homepage jobs - placeholder logic)
+    const jobs = await page.evaluate(() => {
+      let results = [];
 
-  // Extract jobs
-  const jobs = await page.evaluate(() => {
-
-    const rows = [];
-
-    document
-      .querySelectorAll(".srp-jobtuple-wrapper")
-      .forEach(job => {
-
-        const title =
-          job.querySelector("a.title")?.innerText?.trim() || "";
-
-        const company =
-          job.querySelector("a.comp-name")?.innerText?.trim() || "";
-
-        const experience =
-          job.querySelector("span.expwdth")?.innerText?.trim() || "";
-
-        const location =
-          job.querySelector("span.locWdth")?.innerText?.trim() || "";
-
-        const link =
-          job.querySelector("a.title")?.href || "";
-
-        rows.push({
-          title,
-          company,
-          experience,
-          location,
-          link
+      document.querySelectorAll("a.title, a.job-title").forEach(el => {
+        results.push({
+          title: el.innerText.trim(),
+          link: el.href
         });
       });
 
-    return rows;
-  });
+      return results;
+    });
 
-  console.log(`Total Jobs Found: ${jobs.length}`);
+    console.log("Jobs found:", jobs.length);
 
-  // Filter for 4+ years experience
-  const filteredJobs = jobs.filter(job => {
+    if (jobs.length === 0) {
+      jobs.push({
+        title: "No jobs found (update selectors later)",
+        link: "N/A"
+      });
+    }
 
-    const exp = job.experience || "";
+    // CSV writer setup
+    const csvWriter = createObjectCsvWriter({
+      path: "jobs.csv",
+      header: [
+        { id: "title", title: "Job Title" },
+        { id: "link", title: "Job Link" }
+      ]
+    });
 
-    return (
-      exp.includes("4") ||
-      exp.includes("5") ||
-      exp.includes("6") ||
-      exp.includes("7") ||
-      exp.includes("8") ||
-      exp.includes("9") ||
-      exp.includes("10") ||
-      exp.includes("11") ||
-      exp.includes("12")
-    );
-  });
+    await csvWriter.writeRecords(jobs);
 
-  console.log(`Filtered Jobs: ${filteredJobs.length}`);
+    console.log("CSV file created: jobs.csv");
 
-  // CSV Writer
-  const csvWriter = createObjectCsvWriter({
-    path: "nodejs_jobs.csv",
-    header: [
-      { id: "title", title: "TITLE" },
-      { id: "company", title: "COMPANY" },
-      { id: "experience", title: "EXPERIENCE" },
-      { id: "location", title: "LOCATION" },
-      { id: "link", title: "LINK" }
-    ]
-  });
+    // Optional: show file content
+    const fileData = fs.readFileSync("jobs.csv", "utf8");
+    console.log("\nCSV Preview:\n", fileData);
 
-  await csvWriter.writeRecords(filteredJobs);
-
-  console.log(
-    "CSV Created Successfully: nodejs_jobs.csv"
-  );
-
-  await browser.close();
-
+  } catch (error) {
+    console.error("Error:", error);
+  } finally {
+    if (browser) await browser.close();
+  }
 })();
